@@ -1,0 +1,67 @@
+# ============================================
+# Weather Station — Configuración Home Assistant
+# ============================================
+#
+# Añade este contenido a tu configuration.yaml de Home Assistant.
+#
+# IMPORTANTE: Cambia los entity IDs (sensor.ws90_*) por los reales
+# de tu instalación. Puedes verificarlos en:
+#   Home Assistant → Herramientas para desarrolladores → Estados
+#
+# También necesitas crear un helper input_text con tu API token:
+#   Ajustes → Dispositivos y servicios → Ayudantes → Crear ayudante → Texto
+#   Nombre: weather_api_token
+#   Valor: (el mismo que API_SECRET_KEY en tu .env del servidor)
+#
+# ============================================
+
+# --- REST Command para enviar datos al servidor cloud ---
+rest_command:
+  send_weather_data:
+    url: "https://meteo.tu-dominio.com/api/weather/ingest"
+    method: POST
+    headers:
+      Authorization: >-
+        Bearer {{ states('input_text.weather_api_token') }}
+      Content-Type: "application/json"
+    payload: >-
+      {
+        "temperature": {{ states('sensor.ws90_temperature') | float(0) }},
+        "humidity": {{ states('sensor.ws90_humidity') | float(0) }},
+        "pressure": {{ states('sensor.ws90_pressure') | float(0) }},
+        "wind_speed": {{ states('sensor.ws90_wind_speed') | float(0) }},
+        "wind_direction": {{ states('sensor.ws90_wind_direction') | float(0) }},
+        "wind_gust": {{ states('sensor.ws90_wind_gust') | float(0) }},
+        "rain": {{ states('sensor.ws90_rain') | float(0) }},
+        "uv_index": {{ states('sensor.ws90_uv_index') | float(0) }},
+        "illuminance": {{ states('sensor.ws90_illuminance') | float(0) }}
+      }
+    content_type: "application/json"
+    verify_ssl: true
+
+# --- Automatización: enviar datos cada 5 minutos ---
+automation:
+  - id: weather_station_cloud_sync
+    alias: "☁️ Enviar datos meteo a la nube"
+    description: "Envía los datos de la WS90 al servidor cloud cada 5 minutos"
+    mode: single
+    trigger:
+      - platform: time_pattern
+        minutes: "/5"
+    condition:
+      # Solo enviar si la estación está disponible (no 'unavailable' ni 'unknown')
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: sensor.ws90_temperature
+            state: "unavailable"
+          - condition: state
+            entity_id: sensor.ws90_temperature
+            state: "unknown"
+    action:
+      - service: rest_command.send_weather_data
+      - service: logbook.log
+        data:
+          name: "Weather Cloud Sync"
+          message: "Datos meteorológicos enviados al servidor cloud"
+          entity_id: sensor.ws90_temperature

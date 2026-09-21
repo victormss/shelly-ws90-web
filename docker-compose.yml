@@ -1,0 +1,88 @@
+name: weather-stack
+
+services:
+  weather-api:
+    build: ./weather-api
+    container_name: weather-api
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://weather:${DB_PASSWORD}@timescaledb:5432/weatherdb
+      - API_SECRET_KEY=${API_SECRET_KEY}
+      - TZ=Europe/Madrid
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    networks:
+      - weather-net
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb
+    environment:
+      - POSTGRES_USER=weather
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=weatherdb
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weather -d weatherdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - weather-net
+    # Optimización para instancias con poca RAM (1GB)
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=256MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "max_connections=20"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: weather-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./frontend/dist:/var/www/weather-frontend:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-var:/var/lib/letsencrypt
+      - ./nginx/certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - weather-api
+    networks:
+      - weather-net
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    container_name: weather-certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - ./nginx/certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'"
+    networks:
+      - weather-net
+    restart: unless-stopped
+
+volumes:
+  timescaledb-data:
+  certbot-etc:
+  certbot-var:
+
+networks:
+  weather-net:
+    driver: bridge
