@@ -127,20 +127,117 @@ Añade el contenido de `homeassistant/weather_automation.yaml` a tu `configurati
 | `GET` | `/api/health` | No | Estado del sistema |
 | `GET` | `/api/docs` | No | Documentación Swagger |
 
-## 🔧 Firewall Oracle Cloud
+## 🔄 CI/CD y Auto-actualizaciones
 
-Recuerda abrir los puertos en las Security Lists de Oracle Cloud:
+Este proyecto incluye un flujo de GitHub Actions que construye y publica automáticamente imágenes multiplataforma (AMD64/ARM64) en GitHub Container Registry (GHCR) tras cada actualización en la rama `main`.
 
-```bash
-# En la instancia (iptables)
-sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
-sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
-sudo netfilter-persistent save
+Si despliegas la aplicación utilizando la imagen Docker pre-construida, puedes usar **Watchtower** para que el servidor se actualice automáticamente de forma desatendida cada vez que haya una nueva versión.
+
+Aquí tienes un ejemplo de `docker-compose.yml` para un entorno de producción usando Watchtower:
+
+```yaml
+# docker-compose.yml (producción con auto-actualización)
+name: weather-stack
+
+services:
+  weather-api:
+    # Usar la imagen pre-construida de GHCR.
+    # Si haces un fork, reemplaza 'victormss/shelly-ws90-web' por tu usuario/repo
+    image: ghcr.io/victormss/shelly-ws90-web/weather-api:latest
+    container_name: weather-api
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://weather:${DB_PASSWORD}@timescaledb:5432/weatherdb
+      - API_SECRET_KEY=${API_SECRET_KEY}
+      - TZ=Europe/Madrid
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    networks:
+      - weather-net
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb
+    environment:
+      - POSTGRES_USER=weather
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=weatherdb
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weather -d weatherdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - weather-net
+    # Optimización para instancias con poca RAM (1GB)
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=256MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "max_connections=20"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: weather-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./frontend/dist:/var/www/weather-frontend:ro
+      - certbot-etc:/etc/letsencrypt:ro
+      - certbot-var:/var/lib/letsencrypt
+      - ./nginx/certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - weather-api
+    networks:
+      - weather-net
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    container_name: weather-certbot
+    volumes:
+      - certbot-etc:/etc/letsencrypt
+      - certbot-var:/var/lib/letsencrypt
+      - ./nginx/certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'"
+    networks:
+      - weather-net
+    restart: unless-stopped
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    # Comprueba si hay una nueva imagen cada 5 minutos (300 segundos)
+    command: --interval 300
+    restart: unless-stopped
+
+volumes:
+  timescaledb-data:
+  certbot-etc:
+  certbot-var:
+
+networks:
+  weather-net:
+    driver: bridge
 ```
 
-Y en la consola web de Oracle Cloud:
-- **Networking → Virtual Cloud Networks → tu VCN → Security Lists**
-- Añadir regla de ingreso para TCP puertos 80 y 443
 
 ## 📁 Estructura del Proyecto
 
