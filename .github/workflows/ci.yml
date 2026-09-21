@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -29,12 +29,46 @@ jobs:
 
       - name: Lint with flake8
         run: |
-          # Detiene la construcción si hay errores de sintaxis o variables indefinidas
           flake8 weather-api/app --count --select=E9,F63,F7,F82 --show-source --statistics
-          # Advertencias de estilo
           flake8 weather-api/app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Test Docker Compose build
         run: |
-          # Comprueba que los servicios de docker compilan correctamente
           docker compose build
+
+  build-and-push-docker:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/weather-api
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./weather-api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
