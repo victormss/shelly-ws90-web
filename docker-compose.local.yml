@@ -1,0 +1,74 @@
+name: weather-stack-local
+
+services:
+  weather-api:
+    build: ./weather-api
+    container_name: weather-api-local
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://weather:devpassword@timescaledb:5432/weatherdb
+      - API_SECRET_KEY=local-secret-key-for-testing
+      - TZ=Europe/Madrid
+      - ALLOWED_ORIGINS=*
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    networks:
+      - weather-net-local
+    ports:
+      - "8000:8000" # Exponemos la API directamente para pruebas locales
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb-local
+    environment:
+      - POSTGRES_USER=weather
+      - POSTGRES_PASSWORD=devpassword
+      - POSTGRES_DB=weatherdb
+    volumes:
+      - timescaledb-data-local:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weather -d weatherdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - weather-net-local
+    # Optimización reducida para local si es necesario, o igual que prod
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=256MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "max_connections=20"
+    ports:
+      - "5432:5432" # Exponemos DB para debug local con DBeaver/PgAdmin
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: weather-nginx-local
+    ports:
+      - "8080:80" # Usamos 8080 para evitar conflictos con servicios locales
+    volumes:
+      - ./nginx/conf.d/default.conf:/etc/nginx/conf.d/default.conf:ro # Solo montamos el config HTTP, no los certificados
+      - ./frontend/dist:/var/www/weather-frontend:ro
+    depends_on:
+      - weather-api
+    networks:
+      - weather-net-local
+    restart: unless-stopped
+
+volumes:
+  timescaledb-data-local:
+
+networks:
+  weather-net-local:
+    driver: bridge
