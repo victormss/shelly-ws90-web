@@ -1,0 +1,10 @@
+{
+    "name": "Estación Meteorológica",
+    "short_name": "Meteo",
+    "description": "Datos meteorológicos en tiempo real de la estación Ecowitt WS90",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "icons": []
+}

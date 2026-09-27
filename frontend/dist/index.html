@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Estación meteorológica en tiempo real — Datos de temperatura, humedad, viento, lluvia y más desde una estación Ecowitt WS90.">
+    <meta name="theme-color" content="#0f172a">
+
+    <title>Estación Meteorológica — Datos en Tiempo Real</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌤️</text></svg>">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-gradient" aria-hidden="true"></div>
+    <div class="bg-particles" aria-hidden="true" id="particles"></div>
+
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo">
+                    <span class="logo-icon">🌤️</span>
+                    <div class="logo-text">
+                        <h1>Estación Meteorológica</h1>
+                        <p class="subtitle">Ecowitt WS90 — Datos en tiempo real</p>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="last-update" id="lastUpdate">
+                    <span class="pulse-dot"></span>
+                    <span class="update-text">Conectando...</span>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Hero Cards Row -->
+        <section class="hero-cards" aria-label="Datos actuales">
+            <!-- Temperature -->
+            <div class="card hero-card temperature-card" id="card-temp">
+                <div class="card-glow"></div>
+                <div class="card-header">
+                    <span class="card-icon">🌡️</span>
+                    <span class="card-label">Temperatura</span>
+                </div>
+                <div class="card-value">
+                    <span class="value-number" id="currentTemp">--</span>
+                    <span class="value-unit">°C</span>
+                </div>
+                <div class="card-detail" id="tempRange">
+                    <span class="detail-min">Min: --°C</span>
+                    <span class="detail-sep">•</span>
+                    <span class="detail-max">Max: --°C</span>
+                </div>
+            </div>
+
+            <!-- Humidity -->
+            <div class="card hero-card humidity-card" id="card-humidity">
+                <div class="card-glow"></div>
+                <div class="card-header">
+                    <span class="card-icon">💧</span>
+                    <span class="card-label">Humedad</span>
+                </div>
+                <div class="card-value">
+                    <span class="value-number" id="currentHumidity">--</span>
+                    <span class="value-unit">%</span>
+                </div>
+                <div class="card-detail">
+                    <div class="humidity-bar">
+                        <div class="humidity-fill" id="humidityFill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pressure -->
+            <div class="card hero-card pressure-card" id="card-pressure">
+                <div class="card-glow"></div>
+                <div class="card-header">
+                    <span class="card-icon">🔵</span>
+                    <span class="card-label">Presión</span>
+                </div>
+                <div class="card-value">
+                    <span class="value-number" id="currentPressure">--</span>
+                    <span class="value-unit">hPa</span>
+                </div>
+                <div class="card-detail" id="pressureTrend">
+                    <span class="trend-icon">→</span>
+                    <span class="trend-text">Estable</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Secondary Cards Row -->
+        <section class="secondary-cards" aria-label="Datos secundarios">
+            <!-- Wind -->
+            <div class="card wind-card" id="card-wind">
+                <div class="card-header">
+                    <span class="card-icon">💨</span>
+                    <span class="card-label">Viento</span>
+                </div>
+                <div class="wind-content">
+                    <div class="wind-compass">
+                        <svg viewBox="0 0 120 120" class="compass-svg" id="compassSvg">
+                            <!-- Compass ring -->
+                            <circle cx="60" cy="60" r="54" class="compass-ring" />
+                            <circle cx="60" cy="60" r="44" class="compass-ring-inner" />
+                            <!-- Cardinal points -->
+                            <text x="60" y="14" class="compass-text cardinal">N</text>
+                            <text x="108" y="64" class="compass-text cardinal">E</text>
+                            <text x="60" y="115" class="compass-text cardinal">S</text>
+                            <text x="12" y="64" class="compass-text cardinal">O</text>
+                            <!-- Intercardinal points -->
+                            <text x="92" y="28" class="compass-text intercardinal">NE</text>
+                            <text x="92" y="98" class="compass-text intercardinal">SE</text>
+                            <text x="22" y="98" class="compass-text intercardinal">SO</text>
+                            <text x="22" y="28" class="compass-text intercardinal">NO</text>
+                            <!-- Arrow -->
+                            <g id="compassArrow" transform="rotate(0, 60, 60)">
+                                <line x1="60" y1="22" x2="60" y2="60" class="compass-arrow" />
+                                <polygon points="54,28 60,16 66,28" class="compass-arrowhead" />
+                            </g>
+                            <!-- Center dot -->
+                            <circle cx="60" cy="60" r="4" class="compass-center" />
+                        </svg>
+                    </div>
+                    <div class="wind-data">
+                        <div class="wind-speed">
+                            <span class="wind-value" id="currentWindSpeed">--</span>
+                            <span class="wind-label">km/h</span>
+                        </div>
+                        <div class="wind-gust">
+                            <span class="wind-gust-label">Ráfaga</span>
+                            <span class="wind-gust-value" id="currentWindGust">-- km/h</span>
+                        </div>
+                        <div class="wind-direction-text">
+                            <span id="windDirectionText">--°</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rain -->
+            <div class="card rain-card" id="card-rain">
+                <div class="card-header">
+                    <span class="card-icon">🌧️</span>
+                    <span class="card-label">Precipitación</span>
+                </div>
+                <div class="rain-content">
+                    <div class="rain-value-main">
+                        <span class="value-number" id="currentRain">--</span>
+                        <span class="value-unit">mm</span>
+                    </div>
+                    <div class="rain-drops" id="rainDrops" aria-hidden="true"></div>
+                </div>
+            </div>
+
+            <!-- UV Index -->
+            <div class="card uv-card" id="card-uv">
+                <div class="card-header">
+                    <span class="card-icon">☀️</span>
+                    <span class="card-label">Índice UV</span>
+                </div>
+                <div class="uv-content">
+                    <div class="uv-gauge">
+                        <div class="uv-gauge-bar">
+                            <div class="uv-gauge-fill" id="uvGaugeFill"></div>
+                            <div class="uv-gauge-marker" id="uvGaugeMarker"></div>
+                        </div>
+                        <div class="uv-gauge-labels">
+                            <span>0</span>
+                            <span>3</span>
+                            <span>6</span>
+                            <span>8</span>
+                            <span>11+</span>
+                        </div>
+                    </div>
+                    <div class="uv-value-display">
+                        <span class="uv-number" id="currentUV">--</span>
+                        <span class="uv-level" id="uvLevel">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Illuminance -->
+            <div class="card illuminance-card" id="card-illuminance">
+                <div class="card-header">
+                    <span class="card-icon">💡</span>
+                    <span class="card-label">Luminosidad</span>
+                </div>
+                <div class="card-value">
+                    <span class="value-number" id="currentIlluminance">--</span>
+                    <span class="value-unit">lux</span>
+                </div>
+                <div class="card-detail" id="illuminanceLevel">
+                    <span class="illuminance-text">--</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section" aria-label="Gráficos históricos">
+            <div class="charts-header">
+                <h2 class="section-title">📊 Histórico</h2>
+                <div class="time-range-selector" id="timeRangeSelector">
+                    <button class="range-btn" data-range="1h">1H</button>
+                    <button class="range-btn" data-range="6h">6H</button>
+                    <button class="range-btn active" data-range="24h">24H</button>
+                    <button class="range-btn" data-range="7d">7D</button>
+                    <button class="range-btn" data-range="30d">30D</button>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="card chart-card">
+                    <h3 class="chart-title">🌡️ Temperatura</h3>
+                    <div class="chart-container">
+                        <canvas id="chartTemperature"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3 class="chart-title">💧 Humedad</h3>
+                    <div class="chart-container">
+                        <canvas id="chartHumidity"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3 class="chart-title">🔵 Presión Atmosférica</h3>
+                    <div class="chart-container">
+                        <canvas id="chartPressure"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card">
+                    <h3 class="chart-title">💨 Viento</h3>
+                    <div class="chart-container">
+                        <canvas id="chartWind"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>Estación Ecowitt WS90 • Datos actualizados cada 5 minutos</p>
+            <p class="footer-sub">Zigbee2MQTT → Home Assistant → Cloud</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+    <script src="js/charts.js"></script>
+</body>
+</html>
