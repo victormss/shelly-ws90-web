@@ -13,7 +13,7 @@ server {
     server_name meteo.victorsantos.com.es;
 
     # Certbot ACME challenge
-    location /.well-known/acme-challenge/ {
+    location ^~ /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
 
