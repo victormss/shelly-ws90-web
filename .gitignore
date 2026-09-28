@@ -122,3 +122,6 @@ Desktop.ini
 # Reports & Documentation
 # ------------------------------------------------------------------------------
 reports/
+
+# .agents/rules
+.agents/rules/general.md
