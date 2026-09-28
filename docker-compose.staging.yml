@@ -1,0 +1,88 @@
+name: weather-stack-staging
+
+services:
+  weather-api:
+    image: ghcr.io/${GITHUB_REPOSITORY:-victormss/shelly-ws90-web}/weather-api:staging
+    container_name: weather-api-staging
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://weather:${DB_PASSWORD}@timescaledb-staging:5432/weatherdb
+      - API_SECRET_KEY=${API_SECRET_KEY}
+      - TZ=Europe/Madrid
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://meteotest.victorsantos.com.es}
+      - DEBUG=true
+    depends_on:
+      timescaledb-staging:
+        condition: service_healthy
+    networks:
+      - weather-net-staging
+    restart: unless-stopped
+
+  timescaledb-staging:
+    image: timescale/timescaledb:latest-pg16
+    container_name: timescaledb-staging
+    environment:
+      - POSTGRES_USER=weather
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=weatherdb
+    volumes:
+      - timescaledb-data-staging:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U weather -d weatherdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - weather-net-staging
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=256MB"
+      - "-c"
+      - "work_mem=4MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "max_connections=20"
+    restart: unless-stopped
+
+  nginx-staging:
+    image: nginx:alpine
+    container_name: weather-nginx-staging
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d/staging.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/var/www/weather-frontend:ro
+      - certbot-etc-staging:/etc/letsencrypt:ro
+      - certbot-var-staging:/var/lib/letsencrypt
+      - ./nginx/certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      - weather-api
+    networks:
+      - weather-net-staging
+    restart: unless-stopped
+
+  certbot-staging:
+    image: certbot/certbot
+    container_name: weather-certbot-staging
+    volumes:
+      - certbot-etc-staging:/etc/letsencrypt
+      - certbot-var-staging:/var/lib/letsencrypt
+      - ./nginx/certbot-webroot:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'"
+    networks:
+      - weather-net-staging
+    restart: unless-stopped
+
+volumes:
+  timescaledb-data-staging:
+  certbot-etc-staging:
+  certbot-var-staging:
+
+networks:
+  weather-net-staging:
+    driver: bridge
