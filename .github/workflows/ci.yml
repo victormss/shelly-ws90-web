@@ -32,6 +32,10 @@ jobs:
           flake8 weather-api/app --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 weather-api/app --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
+      - name: Run tests
+        run: |
+          cd weather-api && python -m pytest tests/ -v --tb=short
+
       - name: Test Docker Compose build
         run: |
           docker compose build
@@ -96,8 +100,11 @@ jobs:
           script: |
             cd /opt/weather-station
 
-            # Login en GHCR
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            # Pull del repo para actualizar configs
+            git pull origin main || true
+
+            # Login en GHCR con PAT (read:packages)
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
 
             # Descargar y desplegar
             docker compose pull
