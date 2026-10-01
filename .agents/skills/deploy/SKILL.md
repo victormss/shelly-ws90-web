@@ -7,26 +7,64 @@ description: >
 
 # Skill: Deploy
 
-## Flujo normal (automático vía CI/CD)
+## Flujo automático (CI/CD)
 
-### Deploy a staging
-1. Pushear o mergear a la rama `develop`
-2. GitHub Actions ejecuta `.github/workflows/staging.yml`:
-   - Lint + pytest
-   - Build imagen `ghcr.io/victormss/shelly-ws90-web/weather-api:staging`
-   - SSH a MeteoTest → `docker compose -f docker-compose.staging.yml pull && up -d`
-3. Verificar en https://meteotest.victorsantos.com.es
+### Deploy a staging (automático, sin intervención humana)
 
-### Deploy a producción
-1. Crear PR de `develop` → `main`
-2. Esperar aprobación del PR (branch protection)
-3. Merge a `main`
-4. GitHub Actions ejecuta `.github/workflows/ci.yml`:
-   - Lint + pytest
-   - Build imagen `ghcr.io/victormss/shelly-ws90-web/weather-api:latest`
-   - Espera aprobación del environment `production` en GitHub
-   - SSH a MeteoProd → `docker compose pull && up -d`
-5. Verificar en https://meteo.victorsantos.com.es
+Cada push a `develop` dispara el pipeline completo. **No se requiere ninguna acción manual.**
+
+```
+Push a develop
+    │
+    ▼
+GitHub Actions (staging.yml)
+    ├── 1. Lint (flake8)
+    ├── 2. Tests (pytest)
+    ├── 3. Build imagen Docker
+    ├── 4. Push a GHCR con tag :staging
+    │       → ghcr.io/victormss/shelly-ws90-web/weather-api:staging
+    │
+    ▼
+SSH a MeteoTest
+    ├── 5. git pull origin develop (actualiza configs, nginx, compose)
+    ├── 6. docker login en GHCR (con GHCR_PAT)
+    ├── 7. docker compose -f docker-compose.staging.yml pull
+    │       → Descarga la imagen :staging recién construida
+    └── 8. docker compose -f docker-compose.staging.yml up -d
+            → Levanta los contenedores con la nueva imagen
+
+Resultado: https://meteotest.victorsantos.com.es actualizado
+```
+
+**Punto clave:** MeteoTest **nunca hace build local**. El `docker-compose.staging.yml` tiene configurado `image: ghcr.io/.../weather-api:staging` (no `build:`), así que solo descarga imágenes pre-construidas desde GHCR.
+
+### Deploy a producción (requiere aprobación humana)
+
+```
+PR develop → main
+    │
+    ▼
+Aprobación del PR (branch protection)
+    │
+    ▼
+Merge a main → GitHub Actions (ci.yml)
+    ├── 1. Lint + Tests
+    ├── 2. Build imagen Docker
+    ├── 3. Push a GHCR con tag :latest
+    │
+    ▼
+⏸️  Pausa: esperando aprobación del environment "production" en GitHub
+    │
+    ▼ (tras aprobación manual)
+SSH a MeteoProd
+    ├── 4. git pull origin main
+    ├── 5. docker compose pull (descarga :latest)
+    └── 6. docker compose up -d
+
+Resultado: https://meteo.victorsantos.com.es actualizado
+```
+
+**Doble validación:** primero se aprueba el PR (código), luego se aprueba el environment (deploy).
 
 ---
 
