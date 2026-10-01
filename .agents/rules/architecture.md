@@ -33,12 +33,14 @@ Los servidores MeteoProd y MeteoTest son **máquinas separadas** (Oracle Cloud, 
 ## Estrategia de ramas y CI/CD
 
 ```
-feature/* → PR a develop → CI (lint + pytest + docker build) → merge → build :staging → deploy MeteoTest automático
-develop  → PR a main     → CI (lint + pytest + docker build) → aprobación PR → merge → build :latest → aprobación environment → deploy MeteoProd
+feature/* → PR a develop → CI (lint + pytest + docker build) → merge → build :staging → push a GHCR
+develop  → PR a main     → CI (lint + pytest + docker build) → aprobación PR → merge → build :latest → push a GHCR
 ```
 
-- **`main`**: Protegida. Solo recibe PRs aprobados desde `develop`. Deploy a producción requiere aprobación del environment `production` en GitHub.
-- **`develop`**: Integración y staging. Push dispara build + deploy automático a MeteoTest.
+GitHub Actions **solo construye y publica imágenes** en GHCR. Los servidores descargan las imágenes ellos mismos (pull manual o automático).
+
+- **`main`**: Protegida. Solo recibe PRs aprobados desde `develop`. Push genera imagen `:latest`.
+- **`develop`**: Integración y staging. Push genera imagen `:staging`.
 - **`feature/*`**: Desarrollo. PRs hacia `develop`.
 
 ## Estructura del proyecto

@@ -83,31 +83,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-  deploy-production:
-    needs: build-and-push-docker
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://meteo.victorsantos.com.es
-    steps:
-      - name: Deploy to production server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            cd /opt/weather-station
-
-            # Login en GHCR con PAT (read:packages)
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
-
-            # Descargar imagen :latest y redesplegar
-            docker compose pull
-            docker compose up -d --remove-orphans
-
-            # Esperar y verificar
-            sleep 15
-            docker compose ps
-            curl -sf http://localhost/api/health || echo "⚠️ Health check failed"

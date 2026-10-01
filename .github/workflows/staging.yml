@@ -67,32 +67,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-  deploy-staging:
-    needs: build-staging-image
-    runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://meteotest.victorsantos.com.es
-
-    steps:
-      - name: Deploy to staging server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          script: |
-            cd /opt/weather-station
-
-            # Login en GHCR con PAT (read:packages)
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
-
-            # Descargar imagen :staging y redesplegar
-            docker compose -f docker-compose.staging.yml pull
-            docker compose -f docker-compose.staging.yml up -d --remove-orphans
-
-            # Esperar y verificar
-            sleep 15
-            docker compose -f docker-compose.staging.yml ps
-            curl -sf http://localhost/api/health || echo "⚠️ Health check failed"

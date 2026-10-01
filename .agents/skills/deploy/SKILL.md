@@ -7,11 +7,20 @@ description: >
 
 # Skill: Deploy
 
-## Flujo automático (CI/CD)
+## Arquitectura de despliegue
 
-### Deploy a staging (automático, sin intervención humana)
+Los servidores **no tienen el repositorio clonado**. Solo contienen los archivos de configuración necesarios (`docker-compose.yml`, `.env`, nginx conf, `db/init.sql`, frontend) creados manualmente una única vez.
 
-Cada push a `develop` dispara el pipeline completo. **No se requiere ninguna acción manual.**
+**GitHub Actions** solo se encarga de:
+- Lint + tests
+- Build de la imagen Docker
+- Push a GHCR con el tag correspondiente (`:staging` o `:latest`)
+
+**Los servidores** se encargan de descargar las imágenes desde GHCR ellos mismos (manual o automáticamente vía Watchtower/cron).
+
+## Flujo CI/CD
+
+### Staging
 
 ```
 Push a develop
@@ -21,23 +30,13 @@ GitHub Actions (staging.yml)
     ├── 1. Lint (flake8)
     ├── 2. Tests (pytest)
     ├── 3. Build imagen Docker
-    ├── 4. Push a GHCR con tag :staging
-    │       → ghcr.io/victormss/shelly-ws90-web/weather-api:staging
-    │
-    ▼
-SSH a MeteoTest
-    ├── 5. docker login en GHCR (con GHCR_PAT)
-    ├── 6. docker compose -f docker-compose.staging.yml pull
-    │       → Descarga la imagen :staging recién construida
-    └── 7. docker compose -f docker-compose.staging.yml up -d
-            → Levanta los contenedores con la nueva imagen
+    └── 4. Push a GHCR con tag :staging
+            → ghcr.io/victormss/shelly-ws90-web/weather-api:staging
 
-Resultado: https://meteotest.victorsantos.com.es actualizado
+(La imagen queda disponible en GHCR para que MeteoTest la descargue)
 ```
 
-**Punto clave:** Los servidores **no tienen el repositorio clonado**. Solo contienen `docker-compose.yml` (o `docker-compose.staging.yml`) y `.env`, creados manualmente una única vez. La CI/CD solo descarga imágenes pre-construidas desde GHCR.
-
-### Deploy a producción (requiere aprobación humana)
+### Producción
 
 ```
 PR develop → main
@@ -49,20 +48,36 @@ Aprobación del PR (branch protection)
 Merge a main → GitHub Actions (ci.yml)
     ├── 1. Lint + Tests
     ├── 2. Build imagen Docker
-    ├── 3. Push a GHCR con tag :latest
-    │
-    ▼
-⏸️  Pausa: esperando aprobación del environment "production" en GitHub
-    │
-    ▼ (tras aprobación manual)
-SSH a MeteoProd
-    ├── 4. docker compose pull (descarga :latest)
-    └── 5. docker compose up -d
+    └── 3. Push a GHCR con tag :latest
+            → ghcr.io/victormss/shelly-ws90-web/weather-api:latest
 
-Resultado: https://meteo.victorsantos.com.es actualizado
+(La imagen queda disponible en GHCR para que MeteoProd la descargue)
 ```
 
-**Doble validación:** primero se aprueba el PR (código), luego se aprueba el environment (deploy).
+---
+
+## Deploy en los servidores (pull manual)
+
+### Staging (MeteoTest)
+```bash
+ssh MeteoTest
+cd /opt/weather-station
+docker compose -f docker-compose.staging.yml pull
+docker compose -f docker-compose.staging.yml up -d --remove-orphans
+docker compose -f docker-compose.staging.yml ps
+```
+
+### Producción (MeteoProd)
+```bash
+ssh MeteoProd
+cd /opt/weather-station
+docker compose pull
+docker compose up -d --remove-orphans
+docker compose ps
+```
+
+> Nota: Si el login en GHCR ha expirado, ejecutar primero:
+> `docker login ghcr.io -u victormss` (usar GHCR_PAT como password)
 
 ---
 
@@ -91,20 +106,18 @@ nano .env
 # Generar secret: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 # 4. Crear directorios auxiliares
-mkdir -p nginx/conf.d nginx/certbot-webroot
+mkdir -p nginx/conf.d nginx/certbot-webroot frontend/dist db
 
 # 5. Crear la configuración de Nginx
 # Copiar el contenido del staging.conf (o default.ssl.conf.template) del repo
 nano nginx/conf.d/default.conf
 
-# 6. Crear directorio para frontend estático
-mkdir -p frontend/dist
-# Copiar los archivos del frontend (index.html, CSS, JS)
+# 6. Copiar los archivos del frontend (index.html, CSS, JS)
+# scp -r frontend/dist/ MeteoTest:/opt/weather-station/frontend/dist/
 
 # 7. Crear db/init.sql
-mkdir -p db
-nano db/init.sql
 # Copiar el contenido del init.sql del repositorio
+nano db/init.sql
 
 # 8. Login en GHCR para descargar la imagen
 echo "TU_GHCR_PAT" | docker login ghcr.io -u victormss --password-stdin
@@ -132,32 +145,6 @@ curl -sf https://meteotest.victorsantos.com.es/api/health
 
 ---
 
-## Deploy manual (sin CI/CD)
-
-Conectarse al servidor por SSH y redescargar la imagen:
-
-### Staging (MeteoTest)
-```bash
-ssh MeteoTest
-cd /opt/weather-station
-docker login ghcr.io -u victormss  # usar GHCR_PAT como password
-docker compose -f docker-compose.staging.yml pull
-docker compose -f docker-compose.staging.yml up -d --remove-orphans
-docker compose -f docker-compose.staging.yml ps
-```
-
-### Producción (MeteoProd)
-```bash
-ssh MeteoProd
-cd /opt/weather-station
-docker login ghcr.io -u victormss  # usar GHCR_PAT como password
-docker compose pull
-docker compose up -d --remove-orphans
-docker compose ps
-```
-
----
-
 ## Rollback
 
 ### Rollback rápido (imagen anterior)
@@ -176,7 +163,7 @@ docker compose -f docker-compose.staging.yml up -d
 # En tu máquina local, revertir el commit problemático
 git revert <commit-hash>
 git push origin develop  # o main
-# El CI/CD reconstruirá la imagen y redesplegará automáticamente
+# El CI/CD reconstruirá la imagen, después hay que hacer pull en el servidor
 ```
 
 ---
@@ -224,21 +211,15 @@ docker compose -f docker-compose.staging.yml stop certbot-staging
 
 ---
 
-## Secrets necesarios en GitHub Actions
+## Secrets / Tokens necesarios
 
-| Secret | Descripción |
-|---|---|
-| `STAGING_HOST` | IP del servidor MeteoTest |
-| `STAGING_USER` | Usuario SSH (ej: `ubuntu`) |
-| `STAGING_SSH_KEY` | Clave privada SSH para MeteoTest |
-| `PROD_HOST` | IP del servidor MeteoProd |
-| `PROD_USER` | Usuario SSH para MeteoProd |
-| `PROD_SSH_KEY` | Clave privada SSH para MeteoProd |
-| `GHCR_PAT` | Personal Access Token con scope `read:packages` |
-| `GHCR_USER` | `victormss` |
+| Token | Scope | Dónde se usa |
+|---|---|---|
+| `GHCR PAT` | `read:packages` | En los servidores para `docker login ghcr.io` |
+| `GITHUB_TOKEN` | automático | En GitHub Actions para push de imágenes (no necesita config) |
 
 ### Crear el PAT para GHCR
 GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic) → Generate new token:
 - Scope: `read:packages`
 - Expiration: sin expiración o 1 año
-- Guardar como secret `GHCR_PAT` en el repositorio
+- Usar en los servidores con `docker login ghcr.io -u victormss`
