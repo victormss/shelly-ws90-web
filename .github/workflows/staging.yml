@@ -74,9 +74,8 @@ jobs:
     environment:
       name: staging
       url: https://meteotest.victorsantos.com.es
-    steps:
-      - uses: actions/checkout@v4
 
+    steps:
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1
         with:
@@ -86,19 +85,14 @@ jobs:
           script: |
             cd /opt/weather-station
 
-            # Pull del repo para actualizar configs
-            git pull origin develop || true
-
             # Login en GHCR con PAT (read:packages)
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
 
-            # Descargar y desplegar
+            # Descargar imagen :staging y redesplegar
             docker compose -f docker-compose.staging.yml pull
             docker compose -f docker-compose.staging.yml up -d --remove-orphans
 
-            # Esperar a que los servicios estén healthy
+            # Esperar y verificar
             sleep 15
             docker compose -f docker-compose.staging.yml ps
-
-            # Health check
             curl -sf http://localhost/api/health || echo "⚠️ Health check failed"

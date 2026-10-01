@@ -100,16 +100,14 @@ jobs:
           script: |
             cd /opt/weather-station
 
-            # Pull del repo para actualizar configs
-            git pull origin main || true
-
             # Login en GHCR con PAT (read:packages)
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
 
-            # Descargar y desplegar
+            # Descargar imagen :latest y redesplegar
             docker compose pull
             docker compose up -d --remove-orphans
 
-            # Health check
+            # Esperar y verificar
             sleep 15
+            docker compose ps
             curl -sf http://localhost/api/health || echo "⚠️ Health check failed"

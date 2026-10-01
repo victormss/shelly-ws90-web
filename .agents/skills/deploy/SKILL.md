@@ -26,17 +26,16 @@ GitHub Actions (staging.yml)
     │
     ▼
 SSH a MeteoTest
-    ├── 5. git pull origin develop (actualiza configs, nginx, compose)
-    ├── 6. docker login en GHCR (con GHCR_PAT)
-    ├── 7. docker compose -f docker-compose.staging.yml pull
+    ├── 5. docker login en GHCR (con GHCR_PAT)
+    ├── 6. docker compose -f docker-compose.staging.yml pull
     │       → Descarga la imagen :staging recién construida
-    └── 8. docker compose -f docker-compose.staging.yml up -d
+    └── 7. docker compose -f docker-compose.staging.yml up -d
             → Levanta los contenedores con la nueva imagen
 
 Resultado: https://meteotest.victorsantos.com.es actualizado
 ```
 
-**Punto clave:** MeteoTest **nunca hace build local**. El `docker-compose.staging.yml` tiene configurado `image: ghcr.io/.../weather-api:staging` (no `build:`), así que solo descarga imágenes pre-construidas desde GHCR.
+**Punto clave:** Los servidores **no tienen el repositorio clonado**. Solo contienen `docker-compose.yml` (o `docker-compose.staging.yml`) y `.env`, creados manualmente una única vez. La CI/CD solo descarga imágenes pre-construidas desde GHCR.
 
 ### Deploy a producción (requiere aprobación humana)
 
@@ -57,9 +56,8 @@ Merge a main → GitHub Actions (ci.yml)
     │
     ▼ (tras aprobación manual)
 SSH a MeteoProd
-    ├── 4. git pull origin main
-    ├── 5. docker compose pull (descarga :latest)
-    └── 6. docker compose up -d
+    ├── 4. docker compose pull (descarga :latest)
+    └── 5. docker compose up -d
 
 Resultado: https://meteo.victorsantos.com.es actualizado
 ```
@@ -83,45 +81,52 @@ sudo mkdir -p /opt/weather-station
 sudo chown $USER:$USER /opt/weather-station
 cd /opt/weather-station
 
-# 2. Clonar el repositorio
-git clone https://github.com/victormss/shelly-ws90-web.git .
+# 2. Crear docker-compose.staging.yml (o docker-compose.yml para producción)
+# Copiar el contenido del archivo correspondiente del repositorio
+nano docker-compose.staging.yml
 
-# 3. Checkout de la rama correcta
-git checkout develop   # para staging
-# git checkout main    # para producción
-
-# 4. Crear archivo .env
-cp .env.staging.example .env   # para staging
-# cp .env.example .env          # para producción
+# 3. Crear archivo .env con los valores reales
 nano .env
-# Rellenar: DB_PASSWORD, API_SECRET_KEY con valores seguros
+# Variables necesarias: DB_PASSWORD, API_SECRET_KEY, ALLOWED_ORIGINS, TZ
 # Generar secret: python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
-# 5. Crear directorio para certbot
-mkdir -p nginx/certbot-webroot
+# 4. Crear directorios auxiliares
+mkdir -p nginx/conf.d nginx/certbot-webroot
 
-# 6. Primer arranque SIN SSL
-# Editar temporalmente nginx conf para servir solo HTTP (comentar bloque 443)
-# o usar un conf temporal sin SSL
+# 5. Crear la configuración de Nginx
+# Copiar el contenido del staging.conf (o default.ssl.conf.template) del repo
+nano nginx/conf.d/default.conf
+
+# 6. Crear directorio para frontend estático
+mkdir -p frontend/dist
+# Copiar los archivos del frontend (index.html, CSS, JS)
+
+# 7. Crear db/init.sql
+mkdir -p db
+nano db/init.sql
+# Copiar el contenido del init.sql del repositorio
+
+# 8. Login en GHCR para descargar la imagen
+echo "TU_GHCR_PAT" | docker login ghcr.io -u victormss --password-stdin
+
+# 9. Primer arranque
+docker compose -f docker-compose.staging.yml pull
 docker compose -f docker-compose.staging.yml up -d
-# Para producción: docker compose up -d
 
-# 7. Verificar que el stack arranca
+# 10. Verificar que el stack arranca
 docker compose -f docker-compose.staging.yml ps
 curl http://localhost/api/health
 
-# 8. Obtener certificado SSL
+# 11. Obtener certificado SSL (requiere DNS apuntando al servidor)
 docker compose -f docker-compose.staging.yml run --rm certbot-staging \
   certbot certonly --webroot -w /var/www/certbot \
   -d meteotest.victorsantos.com.es \
   --email tu@email.com --agree-tos --no-eff-email
-# Para producción: usar certbot (sin -staging) y el dominio meteo.victorsantos.com.es
 
-# 9. Reiniciar nginx para activar SSL
+# 12. Reiniciar nginx para activar SSL
 docker compose -f docker-compose.staging.yml restart nginx-staging
-# Para producción: docker compose restart nginx
 
-# 10. Verificar HTTPS
+# 13. Verificar HTTPS
 curl -sf https://meteotest.victorsantos.com.es/api/health
 ```
 
@@ -129,13 +134,13 @@ curl -sf https://meteotest.victorsantos.com.es/api/health
 
 ## Deploy manual (sin CI/CD)
 
-Conectarse al servidor por SSH y ejecutar:
+Conectarse al servidor por SSH y redescargar la imagen:
 
 ### Staging (MeteoTest)
 ```bash
 ssh MeteoTest
 cd /opt/weather-station
-git pull origin develop
+docker login ghcr.io -u victormss  # usar GHCR_PAT como password
 docker compose -f docker-compose.staging.yml pull
 docker compose -f docker-compose.staging.yml up -d --remove-orphans
 docker compose -f docker-compose.staging.yml ps
@@ -145,7 +150,7 @@ docker compose -f docker-compose.staging.yml ps
 ```bash
 ssh MeteoProd
 cd /opt/weather-station
-git pull origin main
+docker login ghcr.io -u victormss  # usar GHCR_PAT como password
 docker compose pull
 docker compose up -d --remove-orphans
 docker compose ps
@@ -162,15 +167,16 @@ docker image ls ghcr.io/victormss/shelly-ws90-web/weather-api
 
 # Editar docker-compose para usar un tag específico (ej: staging-abc1234)
 # Cambiar la línea image: ... :staging por image: ... :staging-abc1234
+nano docker-compose.staging.yml
 docker compose -f docker-compose.staging.yml up -d
 ```
 
-### Rollback de código
+### Rollback vía CI/CD
 ```bash
-git log --oneline -10
+# En tu máquina local, revertir el commit problemático
 git revert <commit-hash>
-git push
-# El CI/CD se encargará del redeploy
+git push origin develop  # o main
+# El CI/CD reconstruirá la imagen y redesplegará automáticamente
 ```
 
 ---
