@@ -2,7 +2,7 @@ name: weather-stack
 
 services:
   weather-api:
-    build: ./weather-api
+    image: ghcr.io/${GITHUB_REPOSITORY:-victormss/shelly-ws90-web}/weather-api:latest
     container_name: weather-api
     environment:
       - DATABASE_URL=postgresql+asyncpg://weather:${DB_PASSWORD}@timescaledb:5432/weatherdb

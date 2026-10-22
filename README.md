@@ -294,8 +294,7 @@ docker compose logs -f weather-api
 # Backup de la base de datos
 docker exec timescaledb pg_dump -U weather weatherdb > backup_$(date +%Y%m%d).sql
 
-# Actualizar
-git pull
-docker compose build weather-api
+# Actualizar imagen de la API
+docker compose pull
 docker compose up -d
 ```
