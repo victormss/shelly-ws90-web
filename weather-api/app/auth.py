@@ -1,5 +1,6 @@
 """Weather Station API — Authentication middleware."""
 
+import secrets
 from fastapi import Security, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.config import get_settings
@@ -16,7 +17,12 @@ async def verify_api_key(
     """
     settings = get_settings()
 
-    if credentials.credentials != settings.api_secret_key:
+    is_valid = secrets.compare_digest(
+        credentials.credentials.encode("utf-8"),
+        settings.api_secret_key.encode("utf-8"),
+    )
+
+    if not is_valid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API key",
