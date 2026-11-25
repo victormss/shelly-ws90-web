@@ -32,7 +32,7 @@ jobs:
           cd weather-api && python -m pytest tests/ -v --tb=short
 
       - name: Docker Compose build
-        run: docker compose build
+        run: docker compose -f docker-compose.local.yml build
 
   build-staging-image:
     needs: test
