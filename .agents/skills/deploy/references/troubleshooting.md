@@ -7,12 +7,13 @@ Variables según entorno:
 | | Staging | Producción |
 |---|---|---|
 | `H` (host SSH) | `MeteoTest` | `MeteoProd` |
+| `D` (directorio) | `/opt/weather-station` | `/home/ubuntu` |
 | `C` (compose) | `docker compose -f docker-compose.staging.yml` | `docker compose` |
 | api / db / nginx | `weather-api-staging` / `timescaledb-staging` / `weather-nginx-staging` | `weather-api` / `timescaledb` / `weather-nginx` |
 | servicio api / db / nginx / certbot | `weather-api` / `timescaledb-staging` / `nginx-staging` / `certbot-staging` | `weather-api` / `timescaledb` / `nginx` / `certbot` |
 | dominio | `meteotest.victorsantos.com.es` | `meteo.victorsantos.com.es` |
 
-Patrón: `ssh <H> "cd /opt/weather-station && <C> <comando>"`
+Patrón: `ssh <H> "cd <D> && <C> <comando>"`
 
 ## Diagnóstico rápido (empezar siempre aquí)
 
@@ -60,7 +61,7 @@ ssh MeteoTest "cd /opt/weather-station && docker compose -f docker-compose.stagi
 ```
 
 ### Memoria insuficiente (1 GB)
-- `docker stats --no-stream`: la BD debería rondar ≤ 300 MB con `shared_buffers=128MB`.
+- `docker stats --no-stream`: la BD debería rondar ≤ 300 MB con `shared_buffers=128MB`. En `MeteoProd` corren además `watchtower` y `cloudflare-meteo` (6 contenedores en total).
 - `dmesg | tail` o `journalctl -k | grep -i oom` → ¿OOM killer?
 - **(modifica)** Liberar temporalmente: parar certbot (`<C> stop <servicio-certbot>`). Avisar al usuario antes de cambiar parámetros de Postgres o workers de uvicorn.
 

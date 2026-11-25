@@ -32,16 +32,18 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $Image = 'ghcr.io/victormss/shelly-ws90-web/weather-api'
-$RemoteDir = '/opt/weather-station'
 
 if ($Env -eq 'prod') {
     $SshHost = 'MeteoProd'
+    $RemoteDir = '/home/ubuntu'
     $ComposeFile = 'docker-compose.yml'
     $FloatingTag = 'latest'
     $Domain = 'meteo.victorsantos.com.es'
     $TagPrefix = 'sha-'
-} else {
+}
+else {
     $SshHost = 'MeteoTest'
+    $RemoteDir = '/opt/weather-station'
     $ComposeFile = 'docker-compose.staging.yml'
     $FloatingTag = 'staging'
     $Domain = 'meteotest.victorsantos.com.es'
@@ -92,7 +94,8 @@ if (-not $SkipApi) {
         Write-Host "Rollback de $Env a ${Image}:$Tag" -ForegroundColor Yellow
         Invoke-Remote "docker pull ${Image}:$Tag && docker tag ${Image}:$Tag ${Image}:$FloatingTag"
         Invoke-Remote "$Compose up -d --no-build --remove-orphans"
-    } else {
+    }
+    else {
         Write-Host "Desplegando ultima imagen :$FloatingTag en $Env" -ForegroundColor Cyan
         Invoke-Remote "$Compose pull"
         Invoke-Remote "$Compose up -d --remove-orphans"
@@ -109,7 +112,8 @@ for ($i = 1; $i -le 10; $i++) {
         $health = Invoke-RestMethod -Uri $HealthUrl -TimeoutSec 5
         if ($health.status -eq 'healthy') { $ok = $true; break }
         Write-Host "  intento ${i}: status=$($health.status) database=$($health.database)"
-    } catch {
+    }
+    catch {
         Write-Host "  intento ${i}: $($_.Exception.Message)"
     }
     Start-Sleep -Seconds 3

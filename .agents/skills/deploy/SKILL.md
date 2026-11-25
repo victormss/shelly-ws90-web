@@ -10,14 +10,15 @@ description: >-
 
 # Deploy
 
-Los servidores **no tienen el repo**. Todo vive en `/opt/weather-station`.
-GitHub Actions publica la imagen de la API en GHCR. El servidor hace `pull` + `up`.
+Los servidores **no tienen el repo**. Todo vive en `/opt/weather-station` (staging) o `/home/ubuntu` (producción).
+GitHub Actions publica la imagen de la API en GHCR. El servidor hace `pull` + `up` (en producción además corre `watchtower`).
 
 | | Staging | Producción |
 |---|---|---|
 | SSH | `MeteoTest` | `MeteoProd` |
+| Directorio | `/opt/weather-station` | `/home/ubuntu` |
 | Compose | `docker-compose.staging.yml` | `docker-compose.yml` |
-| Contenedores | `weather-api-staging`, `timescaledb-staging`, `weather-nginx-staging`, `weather-certbot-staging` | `weather-api`, `timescaledb`, `weather-nginx`, `weather-certbot` |
+| Contenedores | `weather-api-staging`, `timescaledb-staging`, `weather-nginx-staging`, `weather-certbot-staging` | `weather-api`, `timescaledb`, `weather-nginx`, `weather-certbot`, `watchtower`, `cloudflare-meteo` |
 | Servicio nginx (compose) | `nginx-staging` | `nginx` |
 | Tag imagen | `:staging` / `:staging-<sha7>` | `:latest` / `:sha-<sha7>` |
 | Health | `https://meteotest.victorsantos.com.es/api/health` | `https://meteo.victorsantos.com.es/api/health` |
@@ -64,7 +65,7 @@ scp nginx/conf.d/staging.conf MeteoTest:/opt/weather-station/nginx/conf.d/stagin
 ssh MeteoTest "cd /opt/weather-station && docker compose -f docker-compose.staging.yml exec nginx-staging nginx -t && docker compose -f docker-compose.staging.yml exec nginx-staging nginx -s reload"
 ```
 
-En producción, el archivo que monta nginx es `nginx/conf.d/` completo (generado desde `default.ssl.conf.template`). Revisa el contenido en el servidor antes de sobrescribirlo.
+En producción, el archivo que monta nginx es `MeteoProd:/home/ubuntu/nginx/conf.d/` completo (generado desde `default.ssl.conf.template`). Revisa el contenido en el servidor antes de sobrescribirlo. Tampoco sobrescribas `/home/ubuntu/docker-compose.yml` en `MeteoProd` directamente con el del repo sin conservar sus servicios adicionales (`watchtower`, `cloudflare-meteo`).
 
 Cambios en `db/init.sql`: **no** basta con copiarlo, porque solo se ejecuta con el volumen vacío. Usa la migración de la skill `add-sensor-field`.
 
@@ -85,7 +86,7 @@ git log origin/develop --oneline -n 10   # elegir <sha7> bueno (origin/main para
 ```
 
 El script hace `pull` del tag, lo re-etiqueta como `:staging`/`:latest` localmente y hace `up -d` sin volver a hacer pull.
-El siguiente deploy normal volverá a la última imagen. Para un rollback permanente: `git revert` + push y esperar al CI.
+El siguiente deploy normal volverá a la última imagen. En producción, ten en cuenta que `watchtower` volverá a descargar `:latest` en su siguiente comprobación si no lo paras temporalmente (`docker compose stop watchtower`); para un rollback permanente usa `git revert` + PR a `main` y espera al CI.
 
 ## Referencias (leer solo si hace falta)
 

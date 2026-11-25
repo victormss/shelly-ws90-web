@@ -22,19 +22,20 @@ WS90 → Zigbee2MQTT → Home Assistant (rest_command cada 5 min)
 - **Config**: pydantic-settings, variables de entorno vía `.env`
 - **Frontend**: HTML/CSS/JS vanilla en `frontend/dist/`, sin build
 - **Proxy/SSL**: Nginx + Let's Encrypt (certbot)
-- **CI/CD**: GitHub Actions → build + push a GHCR. **No hay deploy automático**; los servidores hacen pull
+- **CI/CD**: GitHub Actions → build + push a GHCR. Staging hace pull manual (`deploy.ps1`); producción (`MeteoProd`) además ejecuta `watchtower` para auto-actualización
 - **Registro de imágenes**: `ghcr.io/victormss/shelly-ws90-web/weather-api`
 
 ## Entornos e infraestructura
 
-| Entorno | Servidor SSH | Dominio | Rama | Docker Compose | Tags de imagen |
-|---|---|---|---|---|---|
-| Producción | `MeteoProd` | `meteo.victorsantos.com.es` | `main` | `docker-compose.yml` | `:latest`, `:sha-<sha7>` |
-| Staging | `MeteoTest` | `meteotest.victorsantos.com.es` | `develop` | `docker-compose.staging.yml` | `:staging`, `:staging-<sha7>` |
-| Local | localhost | `localhost:8080` (API directa en `:8000`) | cualquiera | `docker-compose.local.yml` | build local |
+| Entorno | Servidor SSH | Directorio | Dominio | Rama | Docker Compose | Tags de imagen |
+|---|---|---|---|---|---|---|
+| Producción | `MeteoProd` | `/home/ubuntu` | `meteo.victorsantos.com.es` | `main` | `docker-compose.yml` | `:latest`, `:sha-<sha7>` |
+| Staging | `MeteoTest` | `/opt/weather-station` | `meteotest.victorsantos.com.es` | `develop` | `docker-compose.staging.yml` | `:staging`, `:staging-<sha7>` |
+| Local | localhost | raíz del repo | `localhost:8080` (API directa en `:8000`) | cualquiera | `docker-compose.local.yml` | build local |
 
 - MeteoProd y MeteoTest son **máquinas separadas** (Oracle Cloud, 1 GB RAM cada una). No comparten puertos ni volúmenes.
-- Los servidores **no tienen el repo clonado**: solo `/opt/weather-station` con compose, `.env`, `nginx/`, `db/init.sql` y `frontend/dist/`.
+- Los servidores **no tienen el repo clonado**: solo `/home/ubuntu` (en `MeteoProd`) o `/opt/weather-station` (en `MeteoTest`) con compose, `.env`, `nginx/`, `db/init.sql` y `frontend/dist/`.
+- `MeteoProd` ejecuta dos servicios extra definidos solo en su `/home/ubuntu/docker-compose.yml`: `watchtower` y `cloudflare-meteo` (6 contenedores en total). `MeteoTest` (staging) solo ejecuta los 4 servicios base (sin `cloudflare-ddns` ni `watchtower`).
 - Por tanto, **la imagen Docker solo contiene la API**. Cambios en `frontend/`, `nginx/` o `db/` hay que copiarlos al servidor a mano (ver skill `deploy`).
 - Para operar en los servidores, usar siempre la skill `deploy`.
 

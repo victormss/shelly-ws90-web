@@ -71,6 +71,6 @@ ssh MeteoTest "docker exec timescaledb-staging psql -U weather -d weatherdb -c '
 
 ```powershell
 # Comillas simples: $(date) lo debe evaluar bash en el servidor, no PowerShell
-ssh MeteoProd 'docker exec timescaledb pg_dump -U weather -d weatherdb -Fc > /opt/weather-station/backup_$(date +%Y%m%d_%H%M).dump'
+ssh MeteoProd 'docker exec timescaledb pg_dump -U weather -d weatherdb -Fc > /home/ubuntu/backup_$(date +%Y%m%d_%H%M).dump'
 ```
 Comprueba antes el espacio en disco (`df -h`).

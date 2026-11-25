@@ -5,7 +5,8 @@ Solo para preparar una máquina desde cero. Los ejemplos son de staging; para pr
 | | Staging | Producción |
 |---|---|---|
 | SSH | `MeteoTest` | `MeteoProd` |
-| Compose (repo → servidor) | `docker-compose.staging.yml` | `docker-compose.yml` (**cambiar `build: ./weather-api` por `image: ghcr.io/victormss/shelly-ws90-web/weather-api:latest`**) |
+| Directorio (servidores actuales) | `/opt/weather-station` | `/home/ubuntu` |
+| Compose (repo → servidor) | `docker-compose.staging.yml` (4 servicios base; sin `watchtower` ni `cloudflare-ddns`) | `docker-compose.yml` (en `MeteoProd` el `/home/ubuntu/docker-compose.yml` real añade `watchtower` y `cloudflare-meteo`) |
 | Nginx (repo → servidor) | `nginx/conf.d/staging.conf` → `nginx/conf.d/staging.conf` | `nginx/conf.d/default.ssl.conf.template` → `nginx/conf.d/default.conf` (sustituir dominio) |
 | Servicios certbot / nginx | `certbot-staging` / `nginx-staging` | `certbot` / `nginx` |
 | Env de ejemplo | `.env.staging.example` | `.env.example` |
