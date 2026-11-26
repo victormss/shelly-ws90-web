@@ -67,7 +67,7 @@ ssh MeteoTest "cd /opt/weather-station && docker compose -f docker-compose.stagi
 
 En producción, el archivo que monta nginx es `MeteoProd:/home/ubuntu/nginx/conf.d/` completo (generado desde `default.ssl.conf.template`). Revisa el contenido en el servidor antes de sobrescribirlo. Tampoco sobrescribas `/home/ubuntu/docker-compose.yml` en `MeteoProd` directamente con el del repo sin conservar sus servicios adicionales (`watchtower`, `cloudflare-meteo`).
 
-Cambios en `db/init.sql`: **no** basta con copiarlo, porque solo se ejecuta con el volumen vacío. Usa la migración de la skill `add-sensor-field`.
+Cambios en `db/init.sql`: **no** basta con copiarlo, porque solo se ejecuta con el volumen vacío. Usa la migración de la skill `add-sensor-field`. En `MeteoProd`, como `watchtower` puede actualizar `:latest` automáticamente tras un merge a `main`, aplica las migraciones compatibles hacia atrás **antes** del merge a `main` (o pausa `watchtower` temporalmente).
 
 ### 4. Verificación (obligatoria)
 
