@@ -62,7 +62,7 @@ develop   → PR a main    → CI → aprobación PR → merge → push :latest 
 | Schema de BD + continuous aggregates + `weather_records` | `db/init.sql` y `db/migrations/` |
 | Frontend (tiempo real e históricos) | `frontend/dist/{index.html,historicos.html}` |
 | Payload que envía Home Assistant | `homeassistant/weather_automation.yaml` |
-| Nginx: local / prod / staging | `nginx/conf.d/{default.conf, default.ssl.conf.template, staging.conf}` |
+| Nginx: local / prod / staging y snippets | `nginx/conf.d/{default.conf, default.ssl.conf.template, staging.conf}`, `nginx/snippets/` |
 | Workflows | `.github/workflows/{ci.yml (main), staging.yml (develop)}` |
 
 ## Convenciones de la API

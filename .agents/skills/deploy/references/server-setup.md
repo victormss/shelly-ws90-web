@@ -25,11 +25,12 @@ Los puertos 80/443 deben estar abiertos en la Security List de Oracle Cloud **y*
 
 ```powershell
 # 1. Directorio
-ssh MeteoTest "sudo mkdir -p /opt/weather-station && sudo chown `$USER:`$USER /opt/weather-station && mkdir -p /opt/weather-station/{nginx/conf.d,nginx/certbot-webroot,frontend/dist,db}"
+ssh MeteoTest "sudo mkdir -p /opt/weather-station && sudo chown `$USER:`$USER /opt/weather-station && mkdir -p /opt/weather-station/{nginx/conf.d,nginx/snippets,nginx/certbot-webroot,frontend/dist,db}"
 
 # 2. Copiar archivos del repo
 scp docker-compose.staging.yml MeteoTest:/opt/weather-station/
 scp nginx/conf.d/staging.conf  MeteoTest:/opt/weather-station/nginx/conf.d/
+scp -r nginx/snippets          MeteoTest:/opt/weather-station/nginx/
 scp db/init.sql                MeteoTest:/opt/weather-station/db/
 .\.agents\skills\deploy\scripts\deploy.ps1 -Env staging -SyncFrontend -SkipApi   # fallará el health check: es normal aquí
 

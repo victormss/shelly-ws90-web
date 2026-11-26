@@ -60,12 +60,13 @@ El script hace `pull` + `up -d --remove-orphans` + `ps` por SSH y luego verifica
 # Frontend (no requiere reinicio: nginx lo sirve desde el volumen)
 .\.agents\skills\deploy\scripts\deploy.ps1 -Env staging -SyncFrontend -SkipApi
 
-# Nginx: copiar y recargar
+# Nginx: copiar conf + snippets y recargar
 scp nginx/conf.d/staging.conf MeteoTest:/opt/weather-station/nginx/conf.d/staging.conf
+scp -r nginx/snippets MeteoTest:/opt/weather-station/nginx/
 ssh MeteoTest "cd /opt/weather-station && docker compose -f docker-compose.staging.yml exec nginx-staging nginx -t && docker compose -f docker-compose.staging.yml exec nginx-staging nginx -s reload"
 ```
 
-En producción, el archivo que monta nginx es `MeteoProd:/home/ubuntu/nginx/conf.d/` completo (generado desde `default.ssl.conf.template`). Revisa el contenido en el servidor antes de sobrescribirlo. Tampoco sobrescribas `/home/ubuntu/docker-compose.yml` en `MeteoProd` directamente con el del repo sin conservar sus servicios adicionales (`watchtower`, `cloudflare-meteo`).
+En producción, nginx monta `MeteoProd:/home/ubuntu/nginx/conf.d/` (generado desde `default.ssl.conf.template`) y `MeteoProd:/home/ubuntu/nginx/snippets/`. Revisa el contenido en el servidor antes de sobrescribirlo. Tampoco sobrescribas `/home/ubuntu/docker-compose.yml` en `MeteoProd` directamente con el del repo sin conservar sus servicios adicionales (`watchtower`, `cloudflare-meteo`).
 
 Cambios en `db/init.sql`: **no** basta con copiarlo, porque solo se ejecuta con el volumen vacío. Usa la migración de la skill `add-sensor-field`. En `MeteoProd`, como `watchtower` puede actualizar `:latest` automáticamente tras un merge a `main`, aplica las migraciones compatibles hacia atrás **antes** del merge a `main` (o pausa `watchtower` temporalmente).
 
