@@ -5,9 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 
 from app.database import get_db
+from app.config import get_settings
 from app.models import WeatherData
 from app.schemas import WeatherIngest, IngestResponse
 from app.auth import verify_api_key
+from app.services.records import upsert_weather_records
 
 router = APIRouter(prefix="/api/weather", tags=["ingest"])
 
@@ -44,6 +46,7 @@ async def ingest_weather_data(
     )
 
     db.add(record)
+    await upsert_weather_records(db, now, data, get_settings().tz)
     await db.commit()
 
     return IngestResponse(

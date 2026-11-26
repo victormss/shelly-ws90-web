@@ -17,7 +17,7 @@ WS90 → Zigbee2MQTT → Home Assistant (rest_command cada 5 min)
 ## Stack tecnológico
 
 - **API**: Python 3.12 + FastAPI + uvicorn (2 workers)
-- **Base de datos**: TimescaleDB (PostgreSQL 16), hypertable `weather_data`, continuous aggregates `hourly_weather_stats` / `daily_weather_stats`, retención de 1 año
+- **Base de datos**: TimescaleDB (PostgreSQL 16), hypertable `weather_data` (retención de 1 año), continuous aggregates `hourly_weather_stats` / `daily_weather_stats`, tabla permanente `weather_records` (récords diarios, semanales, mensuales, anuales y totales con fecha/hora exacta)
 - **ORM**: SQLAlchemy async + `asyncpg` (los endpoints de lectura usan SQL crudo con `text()`)
 - **Config**: pydantic-settings, variables de entorno vía `.env`
 - **Frontend**: HTML/CSS/JS vanilla en `frontend/dist/`, sin build
@@ -57,8 +57,10 @@ develop   → PR a main    → CI → aprobación PR → merge → push :latest 
 | App FastAPI, health check, lifespan | `weather-api/app/main.py` |
 | Modelo ORM | `weather-api/app/models.py` |
 | Validación ingest (rangos físicos) y respuestas | `weather-api/app/schemas.py` |
+| Servicio de récords históricos | `weather-api/app/services/records.py` |
 | Endpoints | `weather-api/app/routers/{ingest,weather}.py` |
-| Schema de BD + continuous aggregates | `db/init.sql` |
+| Schema de BD + continuous aggregates + `weather_records` | `db/init.sql` y `db/migrations/` |
+| Frontend (tiempo real e históricos) | `frontend/dist/{index.html,historicos.html}` |
 | Payload que envía Home Assistant | `homeassistant/weather_automation.yaml` |
 | Nginx: local / prod / staging | `nginx/conf.d/{default.conf, default.ssl.conf.template, staging.conf}` |
 | Workflows | `.github/workflows/{ci.yml (main), staging.yml (develop)}` |

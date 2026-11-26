@@ -89,3 +89,19 @@ SELECT add_continuous_aggregate_policy('daily_weather_stats',
     schedule_interval => INTERVAL '1 day',
     if_not_exists   => TRUE
 );
+
+-- Tabla permanente de récords históricos (sin política de retención)
+CREATE TABLE IF NOT EXISTS weather_records (
+    period_type   TEXT             NOT NULL CHECK (period_type IN ('daily', 'weekly', 'monthly', 'yearly', 'all_time')),
+    period_key    TEXT             NOT NULL,
+    metric        TEXT             NOT NULL,
+    stat_type     TEXT             NOT NULL CHECK (stat_type IN ('min', 'max', 'sum')),
+    value         DOUBLE PRECISION NOT NULL,
+    recorded_at   TIMESTAMPTZ      NOT NULL,
+    updated_at    TIMESTAMPTZ      NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (period_type, period_key, metric, stat_type)
+);
+
+-- Índice para consultar las claves disponibles de un periodo ordenadas de más reciente a más antigua
+CREATE INDEX IF NOT EXISTS idx_weather_records_lookup
+    ON weather_records (period_type, period_key DESC);
