@@ -12,6 +12,8 @@ server {
     listen 80;
     server_name meteo.victorsantos.com.es;
 
+    server_tokens off;
+
     # Certbot ACME challenge
     location ^~ /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -39,12 +41,10 @@ server {
     ssl_session_cache shared:SSL:10m;
     ssl_session_timeout 10m;
 
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    server_tokens off;
+
+    # Security headers (HTTPS — incluye HSTS)
+    include /etc/nginx/snippets/security-headers-ssl.conf;
 
     # Gzip
     gzip on;
@@ -59,12 +59,14 @@ server {
 
         # Cache para assets estáticos
         location ~* \.(css|js|png|jpg|jpeg|gif|ico|svg|woff2?)$ {
-            expires 7d;
-            add_header Cache-Control "public, immutable";
+            add_header Cache-Control "public, max-age=604800, immutable";
+            # Re-incluir cabeceras de seguridad (add_header en location anula la herencia de server)
+            include /etc/nginx/snippets/security-headers-ssl.conf;
         }
     }
 
-    # API proxy — endpoints públicos (GET)
+    # API proxy — endpoints públicos (GET). CORS gestionado por FastAPI.
+    # Sin add_header propio para heredar las cabeceras de seguridad del bloque server.
     location /api/ {
         limit_req zone=api_limit burst=10 nodelay;
 
@@ -73,15 +75,6 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # CORS headers
-        add_header Access-Control-Allow-Origin "*" always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
-
-        if ($request_method = OPTIONS) {
-            return 204;
-        }
     }
 
     # API ingest — rate limit más estricto
