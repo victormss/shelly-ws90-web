@@ -32,7 +32,7 @@ jobs:
           cd weather-api && python -m pytest tests/ -v --tb=short
 
       - name: Docker Compose build
-        run: docker compose build
+        run: docker compose -f docker-compose.local.yml build
 
   build-staging-image:
     needs: test
@@ -67,38 +67,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-  deploy-staging:
-    needs: build-staging-image
-    runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: https://meteotest.victorsantos.com.es
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Deploy to staging server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          script: |
-            cd /opt/weather-station
-
-            # Pull del repo para actualizar configs
-            git pull origin develop || true
-
-            # Login en GHCR con PAT (read:packages)
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
-
-            # Descargar y desplegar
-            docker compose -f docker-compose.staging.yml pull
-            docker compose -f docker-compose.staging.yml up -d --remove-orphans
-
-            # Esperar a que los servicios estén healthy
-            sleep 15
-            docker compose -f docker-compose.staging.yml ps
-
-            # Health check
-            curl -sf http://localhost/api/health || echo "⚠️ Health check failed"

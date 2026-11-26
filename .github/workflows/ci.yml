@@ -38,7 +38,7 @@ jobs:
 
       - name: Test Docker Compose build
         run: |
-          docker compose build
+          docker compose -f docker-compose.local.yml build
 
   build-and-push-docker:
     needs: build-and-test
@@ -83,33 +83,3 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-  deploy-production:
-    needs: build-and-push-docker
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://meteo.victorsantos.com.es
-    steps:
-      - name: Deploy to production server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          script: |
-            cd /opt/weather-station
-
-            # Pull del repo para actualizar configs
-            git pull origin main || true
-
-            # Login en GHCR con PAT (read:packages)
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u "${{ secrets.GHCR_USER }}" --password-stdin
-
-            # Descargar y desplegar
-            docker compose pull
-            docker compose up -d --remove-orphans
-
-            # Health check
-            sleep 15
-            curl -sf http://localhost/api/health || echo "⚠️ Health check failed"
