@@ -86,6 +86,7 @@ if ($SyncFrontend) {
         scp -r $_.FullName "${SshHost}:$RemoteDir/frontend/dist/"
         if ($LASTEXITCODE -ne 0) { throw "Fallo copiando $($_.Name)" }
     }
+    Invoke-Remote "chmod -R a+rX $RemoteDir/frontend/dist"
 }
 
 # --- API ---------------------------------------------------------------------
