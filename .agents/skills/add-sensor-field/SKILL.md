@@ -31,9 +31,10 @@ Ejemplo usado abajo: `dew_point` (°C).
 | 4 | `weather-api/app/schemas.py` | `WeatherIngest` (con `ge`/`le` + `json_schema_extra.example`), `WeatherResponse`, `WeatherStatsResponse` si se agrega |
 | 5 | `weather-api/app/routers/ingest.py` | Asignar el campo en `WeatherData(...)` |
 | 6 | `weather-api/app/routers/weather.py` | **4 sitios**: SELECT de `/current`, SELECT agregado y SELECT crudo de `/history`, SELECT de `/stats`. Y los constructores `WeatherResponse(...)`/`WeatherStatsResponse(...)` de cada uno |
-| 7 | `weather-api/tests/test_health.py` | Test de valor válido y de rechazo fuera de rango |
-| 8 | `frontend/dist/index.html` + `js/app.js` | Tarjeta (seguir el patrón de `card-illuminance` / `updateIlluminance()`) y llamada en el render. `js/charts.js` si va en la gráfica |
-| 9 | `homeassistant/weather_automation.yaml` | Línea en el `payload` con el entity id real (preguntar al usuario). Ojo con la coma JSON del último elemento |
+| 7 | `weather-api/app/services/records.py` | Si la medida guarda récords históricos, añadirla a `MAX_METRICS`/`MIN_METRICS`/`SUM_METRICS` (y backfill en la migración SQL si procede) |
+| 8 | `weather-api/tests/test_health.py` | Test de valor válido y de rechazo fuera de rango |
+| 9 | `frontend/dist/index.html` + `js/app.js` | Tarjeta (seguir el patrón de `card-illuminance` / `updateIlluminance()`) y llamada en el render. `js/charts.js` si va en la gráfica; `historicos.html` + `js/historicos.js` si muestra récord |
+| 10 | `homeassistant/weather_automation.yaml` | Línea en el `payload` con el entity id real (preguntar al usuario). Ojo con la coma JSON del último elemento |
 
 Comprueba que no falta ningún sitio comparando con un campo existente. Ambos recuentos deben coincidir:
 

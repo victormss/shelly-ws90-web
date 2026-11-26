@@ -124,6 +124,8 @@ Añade el contenido de `homeassistant/weather_automation.yaml` a tu `configurati
 | `GET` | `/api/weather/current` | No | Último dato meteorológico |
 | `GET` | `/api/weather/history?range=24h` | No | Histórico (1h, 6h, 12h, 24h, 7d, 30d) |
 | `GET` | `/api/weather/stats?period=daily&days=7` | No | Estadísticas agregadas |
+| `GET` | `/api/weather/records/summary` | No | Resumen de récords vigentes (diario, semanal, mensual, anual y total) |
+| `GET` | `/api/weather/records?period=daily&key=...` | No | Récords de un periodo concreto con fecha y hora exacta |
 | `GET` | `/api/health` | No | Estado del sistema |
 | `GET` | `/api/docs` | No | Documentación Swagger |
 
@@ -246,7 +248,8 @@ weather-station/
 ├── docker-compose.yml          # Stack completo
 ├── .env.example                # Variables de entorno
 ├── db/
-│   └── init.sql                # Esquema TimescaleDB
+│   ├── init.sql                # Esquema TimescaleDB y tabla weather_records
+│   └── migrations/             # Migraciones SQL para BD existentes
 ├── nginx/
 │   ├── conf.d/
 │   │   └── default.conf        # Reverse proxy + SSL
@@ -261,18 +264,22 @@ weather-station/
 │       ├── models.py           # SQLAlchemy models
 │       ├── schemas.py          # Pydantic schemas
 │       ├── auth.py             # Autenticación
+│       ├── services/
+│       │   └── records.py      # Cálculo y upsert de récords históricos
 │       └── routers/
 │           ├── ingest.py       # POST endpoint
 │           └── weather.py      # GET endpoints
 ├── frontend/
 │   └── dist/
-│       ├── index.html          # Dashboard
+│       ├── index.html          # Dashboard tiempo real
+│       ├── historicos.html     # Históricos y récords
 │       ├── manifest.json       # PWA
 │       ├── css/
 │       │   └── style.css       # Estilos
 │       └── js/
 │           ├── app.js          # Lógica principal
-│           └── charts.js       # Gráficos Chart.js
+│           ├── charts.js       # Gráficos Chart.js
+│           └── historicos.js   # Lógica página de históricos
 └── homeassistant/
     └── weather_automation.yaml # Config para HA
 ```
