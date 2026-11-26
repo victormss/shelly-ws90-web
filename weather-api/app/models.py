@@ -1,6 +1,6 @@
 """Weather Station API — SQLAlchemy models."""
 
-from sqlalchemy import Column, Float, DateTime, func
+from sqlalchemy import Column, Float, DateTime, String, func
 from sqlalchemy.orm import DeclarativeBase
 from datetime import datetime, timezone
 
@@ -49,3 +49,25 @@ class WeatherData(Base):
             "uv_index": self.uv_index,
             "illuminance": self.illuminance,
         }
+
+
+class WeatherRecord(Base):
+    """Persistent historical weather record per period and metric.
+
+    Maps to the 'weather_records' table (retained permanently without TimescaleDB retention).
+    """
+
+    __tablename__ = "weather_records"
+
+    period_type = Column(String, primary_key=True)
+    period_key = Column(String, primary_key=True)
+    metric = Column(String, primary_key=True)
+    stat_type = Column(String, primary_key=True)
+    value = Column(Float, nullable=False)
+    recorded_at = Column(DateTime(timezone=True), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=func.now(),
+    )

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     app_name: str = "Weather Station API"
     app_version: str = "1.0.0"
     debug: bool = False
+    tz: str = "Europe/Madrid"
 
     class Config:
         env_file = ".env"

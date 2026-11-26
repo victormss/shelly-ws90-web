@@ -3,11 +3,22 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from typing import Literal
+from typing import Literal, Optional
 from datetime import datetime, timezone, timedelta
 
+from app.config import get_settings
 from app.database import get_db
-from app.schemas import WeatherResponse, WeatherStatsResponse
+from app.schemas import (
+    WeatherResponse,
+    WeatherStatsResponse,
+    WeatherPeriodRecordsResponse,
+    WeatherRecordsSummaryResponse,
+)
+from app.services.records import (
+    PERIOD_TYPES,
+    compute_period_keys,
+    rows_to_record_dict,
+)
 
 router = APIRouter(prefix="/api/weather", tags=["weather"])
 
@@ -199,3 +210,113 @@ async def get_weather_stats(
         )
         for row in rows
     ]
+
+
+@router.get(
+    "/records/summary",
+    response_model=WeatherRecordsSummaryResponse,
+    summary="Get current historical weather records summary",
+    description="Returns current daily, weekly, monthly, yearly, and all-time weather records.",
+)
+async def get_weather_records_summary(
+    db: AsyncSession = Depends(get_db),
+) -> WeatherRecordsSummaryResponse:
+    """Return current records across all five time horizons in a single response."""
+    tz_name = get_settings().tz
+    period_keys = compute_period_keys(datetime.now(timezone.utc), tz_name)
+
+    records_result = await db.execute(
+        text("""
+            SELECT period_type, metric, stat_type, value, recorded_at
+            FROM weather_records
+            WHERE (period_type = 'daily' AND period_key = :daily)
+               OR (period_type = 'weekly' AND period_key = :weekly)
+               OR (period_type = 'monthly' AND period_key = :monthly)
+               OR (period_type = 'yearly' AND period_key = :yearly)
+               OR (period_type = 'all_time' AND period_key = :all_time)
+        """),
+        period_keys,
+    )
+    record_rows = records_result.fetchall()
+
+    keys_result = await db.execute(
+        text("""
+            SELECT period_type, period_key
+            FROM weather_records
+            GROUP BY period_type, period_key
+            ORDER BY period_type ASC, period_key DESC
+        """)
+    )
+    key_rows = keys_result.fetchall()
+
+    grouped_rows: dict[str, list] = {pt: [] for pt in PERIOD_TYPES}
+    for row in record_rows:
+        if row.period_type in grouped_rows:
+            grouped_rows[row.period_type].append(row)
+
+    grouped_keys: dict[str, list[str]] = {pt: [] for pt in PERIOD_TYPES}
+    for row in key_rows:
+        if row.period_type in grouped_keys and len(grouped_keys[row.period_type]) < 60:
+            grouped_keys[row.period_type].append(row.period_key)
+
+    payload = {
+        pt: WeatherPeriodRecordsResponse(
+            period_type=pt,
+            period_key=period_keys[pt],
+            records=rows_to_record_dict(grouped_rows[pt]),
+            available_keys=grouped_keys[pt],
+        )
+        for pt in PERIOD_TYPES
+    }
+    return WeatherRecordsSummaryResponse(timezone=tz_name, **payload)
+
+
+@router.get(
+    "/records",
+    response_model=WeatherPeriodRecordsResponse,
+    summary="Get historical weather records for a period",
+    description="Returns min/max/sum weather records with exact timestamps for a given period.",
+)
+async def get_weather_records(
+    period: Literal["daily", "weekly", "monthly", "yearly", "all_time"] = Query(
+        default="daily",
+        description="Aggregation period",
+    ),
+    key: Optional[str] = Query(
+        default=None,
+        max_length=20,
+        description="Specific period key (e.g. 2026-11-26, 2026-W48, 2026-11, 2026, all)",
+    ),
+    db: AsyncSession = Depends(get_db),
+) -> WeatherPeriodRecordsResponse:
+    """Return historical records and available keys for a specific period."""
+    tz_name = get_settings().tz
+    target_key = key or compute_period_keys(datetime.now(timezone.utc), tz_name)[period]
+
+    records_result = await db.execute(
+        text("""
+            SELECT metric, stat_type, value, recorded_at
+            FROM weather_records
+            WHERE period_type = :period_type AND period_key = :period_key
+        """),
+        {"period_type": period, "period_key": target_key},
+    )
+    keys_result = await db.execute(
+        text("""
+            SELECT period_key
+            FROM weather_records
+            WHERE period_type = :period_type
+            GROUP BY period_key
+            ORDER BY period_key DESC
+            LIMIT 60
+        """),
+        {"period_type": period},
+    )
+
+    available_keys = [row.period_key for row in keys_result.fetchall()]
+    return WeatherPeriodRecordsResponse(
+        period_type=period,
+        period_key=target_key,
+        records=rows_to_record_dict(records_result.fetchall()),
+        available_keys=available_keys,
+    )

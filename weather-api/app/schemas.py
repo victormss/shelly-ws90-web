@@ -87,3 +87,30 @@ class HealthResponse(BaseModel):
     status: str = "healthy"
     version: str
     database: str = "connected"
+
+
+class RecordEntry(BaseModel):
+    """Single historical record value with its exact recording timestamp."""
+
+    value: float
+    recorded_at: datetime
+
+
+class WeatherPeriodRecordsResponse(BaseModel):
+    """Historical records for a specific period scope and key."""
+
+    period_type: str
+    period_key: str
+    records: dict[str, RecordEntry] = Field(default_factory=dict)
+    available_keys: list[str] = Field(default_factory=list)
+
+
+class WeatherRecordsSummaryResponse(BaseModel):
+    """Current historical records across all five time horizons."""
+
+    timezone: str
+    daily: WeatherPeriodRecordsResponse
+    weekly: WeatherPeriodRecordsResponse
+    monthly: WeatherPeriodRecordsResponse
+    yearly: WeatherPeriodRecordsResponse
+    all_time: WeatherPeriodRecordsResponse

@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Históricos y récords meteorológicos (diario, semanal, mensual, anual e histórico total) — Estación Ecowitt WS90.">
+    <meta name="theme-color" content="#0f172a">
+
+    <title>Históricos y Récords — Estación Meteorológica</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css?v=2">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌤️</text></svg>">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-gradient" aria-hidden="true"></div>
+    <div class="bg-particles" aria-hidden="true" id="particles"></div>
+
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="header-content">
+            <div class="header-left">
+                <a href="index.html" class="logo-link">
+                    <div class="logo">
+                        <span class="logo-icon">🌤️</span>
+                        <div class="logo-text">
+                            <h1>Estación Meteorológica</h1>
+                            <p class="subtitle">Ecowitt WS90 — Históricos y récords</p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <nav class="header-nav" aria-label="Navegación principal">
+                <a href="index.html" class="nav-link">📡 Tiempo real</a>
+                <a href="historicos.html" class="nav-link active" aria-current="page">🏆 Históricos</a>
+            </nav>
+            <div class="header-right">
+                <div class="last-update" id="lastUpdate">
+                    <span class="pulse-dot"></span>
+                    <span class="update-text">Cargando...</span>
+                </div>
+                <button class="theme-toggle" id="themeToggle" aria-label="Cambiar tema">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <!-- Period Selector & Navigator -->
+        <section class="records-hero-bar" aria-label="Selección de periodo histórico">
+            <div class="records-heading">
+                <h2 class="section-title">🏆 Históricos y Récords</h2>
+                <p class="records-period-subtitle" id="activePeriodLabel">Cargando datos históricos...</p>
+            </div>
+            <div class="records-controls">
+                <div class="time-range-selector" id="periodSelector" role="tablist" aria-label="Horizonte temporal">
+                    <button class="range-btn active" type="button" data-period="daily" role="tab" aria-selected="true">Diario</button>
+                    <button class="range-btn" type="button" data-period="weekly" role="tab" aria-selected="false">Semanal</button>
+                    <button class="range-btn" type="button" data-period="monthly" role="tab" aria-selected="false">Mensual</button>
+                    <button class="range-btn" type="button" data-period="yearly" role="tab" aria-selected="false">Anual</button>
+                    <button class="range-btn" type="button" data-period="all_time" role="tab" aria-selected="false">Histórico Total</button>
+                </div>
+                <div class="period-navigator" id="keyNavigator">
+                    <button class="period-nav-btn" id="prevKeyBtn" type="button" aria-label="Periodo anterior" title="Periodo anterior">◀</button>
+                    <select class="period-select" id="periodKeySelect" aria-label="Seleccionar periodo"></select>
+                    <button class="period-nav-btn" id="nextKeyBtn" type="button" aria-label="Periodo siguiente" title="Periodo siguiente">▶</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Error / Empty Banner -->
+        <div class="records-status-banner hidden" id="recordsStatusBanner" role="status"></div>
+
+        <!-- Records Cards Grid -->
+        <section class="records-grid" id="recordsGrid" aria-label="Récords del periodo seleccionado">
+            <!-- Temperature -->
+            <article class="card record-card temperature-card">
+                <div class="card-glow"></div>
+                <div class="card-header">
+                    <span class="card-icon">🌡️</span>
+                    <span class="card-label">Temperatura</span>
+                </div>
+                <div class="record-rows">
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-max">Máxima</span>
+                            <span class="record-val" id="recTempMaxVal">-- °C</span>
+                        </div>
+                        <div class="record-time" id="recTempMaxTime">📅 --</div>
+                    </div>
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-min">Mínima</span>
+                            <span class="record-val" id="recTempMinVal">-- °C</span>
+                        </div>
+                        <div class="record-time" id="recTempMinTime">📅 --</div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Humidity -->
+            <article class="card record-card humidity-card">
+                <div class="card-glow"></div>
+                <div class="card-header">
+                    <span class="card-icon">💧</span>
+                    <span class="card-label">Humedad</span>
+                </div>
+                <div class="record-rows">
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-max">Máxima</span>
+                            <span class="record-val" id="recHumMaxVal">-- %</span>
+                        </div>
+                        <div class="record-time" id="recHumMaxTime">📅 --</div>
+                    </div>
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-min">Mínima</span>
+                            <span class="record-val" id="recHumMinVal">-- %</span>
+                        </div>
+                        <div class="record-time" id="recHumMinTime">📅 --</div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Pressure -->
+            <article class="card record-card pressure-card">
+                <div class="card-glow"></div>
+                <div class="card-header">
+                    <span class="card-icon">🔵</span>
+                    <span class="card-label">Presión Atmosférica</span>
+                </div>
+                <div class="record-rows">
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-max">Máxima</span>
+                            <span class="record-val" id="recPressMaxVal">-- hPa</span>
+                        </div>
+                        <div class="record-time" id="recPressMaxTime">📅 --</div>
+                    </div>
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-min">Mínima</span>
+                            <span class="record-val" id="recPressMinVal">-- hPa</span>
+                        </div>
+                        <div class="record-time" id="recPressMinTime">📅 --</div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Wind -->
+            <article class="card record-card">
+                <div class="card-header">
+                    <span class="card-icon">💨</span>
+                    <span class="card-label">Viento</span>
+                </div>
+                <div class="record-rows">
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-max">Velocidad máx.</span>
+                            <span class="record-val" id="recWindMaxVal">-- km/h</span>
+                        </div>
+                        <div class="record-time" id="recWindMaxTime">📅 --</div>
+                    </div>
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-max">Ráfaga máx.</span>
+                            <span class="record-val" id="recGustMaxVal">-- km/h</span>
+                        </div>
+                        <div class="record-time" id="recGustMaxTime">📅 --</div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Rain -->
+            <article class="card record-card">
+                <div class="card-header">
+                    <span class="card-icon">🌧️</span>
+                    <span class="card-label">Precipitación</span>
+                </div>
+                <div class="record-rows">
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-sum">Acumulado</span>
+                            <span class="record-val" id="recRainSumVal">-- mm</span>
+                        </div>
+                        <div class="record-time" id="recRainSumTime">📅 --</div>
+                    </div>
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-max">Pico máx. (5 min)</span>
+                            <span class="record-val" id="recRainMaxVal">-- mm</span>
+                        </div>
+                        <div class="record-time" id="recRainMaxTime">📅 --</div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- UV Index -->
+            <article class="card record-card">
+                <div class="card-header">
+                    <span class="card-icon">☀️</span>
+                    <span class="card-label">Índice UV</span>
+                </div>
+                <div class="record-rows">
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-max">Máximo</span>
+                            <span class="record-val" id="recUvMaxVal">--</span>
+                        </div>
+                        <div class="record-extra">
+                            <span class="uv-level" id="recUvLevel">--</span>
+                        </div>
+                        <div class="record-time" id="recUvMaxTime">📅 --</div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Illuminance -->
+            <article class="card record-card">
+                <div class="card-header">
+                    <span class="card-icon">💡</span>
+                    <span class="card-label">Luminosidad</span>
+                </div>
+                <div class="record-rows">
+                    <div class="record-row">
+                        <div class="record-meta">
+                            <span class="record-badge badge-max">Máxima</span>
+                            <span class="record-val" id="recLuxMaxVal">-- lux</span>
+                        </div>
+                        <div class="record-time" id="recLuxMaxTime">📅 --</div>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <!-- Comparison Table Across All Horizons -->
+        <section class="comparison-section" aria-label="Comparativa entre horizontes">
+            <div class="charts-header">
+                <h2 class="section-title">📋 Comparativa de Récords Vigentes</h2>
+            </div>
+            <div class="card comparison-card">
+                <div class="comparison-table-wrapper">
+                    <table class="comparison-table" id="comparisonTable">
+                        <thead>
+                            <tr>
+                                <th>Métrica</th>
+                                <th>Diario</th>
+                                <th>Semanal</th>
+                                <th>Mensual</th>
+                                <th>Anual</th>
+                                <th>Histórico Total</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparisonTableBody">
+                            <tr>
+                                <td colspan="6" class="comparison-empty">Cargando comparativa...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p>Estación Ecowitt WS90 • Históricos persistentes con fecha y hora exacta de registro</p>
+            <p class="footer-sub">Zigbee2MQTT → Home Assistant → Cloud</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/historicos.js?v=1"></script>
+</body>
+</html>
